@@ -1,4 +1,4 @@
-package com.github.winbender.chpcadscraper;
+package com.github.windbender.chpcadscraper;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -154,7 +154,9 @@ public class ChpCadScraper implements Runnable {
 	public synchronized List<CHPEvent> returnFiltered(EventFilter eventFilter) {
 		List<CHPEvent> out = new ArrayList<CHPEvent>();
 		for(Entry<EventKey, CHPEvent> e: store.entrySet()) {
-			if(eventFilter.test(e.getValue())) {
+			if(eventFilter == null) {
+				out.add(e.getValue());
+			} else if(eventFilter.test(e.getValue())) {
 				out.add(e.getValue());
 			}
         }

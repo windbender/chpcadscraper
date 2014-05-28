@@ -1,4 +1,4 @@
-package com.github.winbender.chpcadscraper;
+package com.github.windbender.chpcadscraper;
 
 import java.util.ArrayList;
 import java.util.List;

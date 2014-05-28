@@ -1,4 +1,4 @@
-package com.github.winbender.chpcadscraper;
+package com.github.windbender.chpcadscraper;
 
 public class Coordinate {
 	public Coordinate(double latitude, double longitude) {
