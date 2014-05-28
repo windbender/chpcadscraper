@@ -44,7 +44,7 @@ public class RunIt {
 		}
 		
 		String r = cmd.getOptionValue("r");
-		if(fs == null) {
+		if(r == null) {
 			r = "GGCC";
 		}
 		

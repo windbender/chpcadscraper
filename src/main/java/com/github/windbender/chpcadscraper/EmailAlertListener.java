@@ -29,11 +29,11 @@ public class EmailAlertListener implements AlertListener {
 	public void alertAdded(List<CHPEvent> events) {
 		CHPEvent first = events.get(0);
 		String subject =""+first.type+" at "+first.location;
-		String msg = "More details:\n";
+		String msg = "More details:<p>";
 		for(CHPEvent e: events) {
-			msg = msg + e.type+" at "+e.location +"\n";
+			msg = msg + e.type+" at "+e.location +"<p>";
 			for(CHPLine l: e.lines){ 
-				msg = msg +"\t"+l.time+" "+l.detail+"\n";
+				msg = msg +"&nbsp;&nbsp;"+l.time+" "+l.detail+"<p>";
 			}
 		}
 		sendMessage(this.to,msg,subject,from);
@@ -81,11 +81,10 @@ public class EmailAlertListener implements AlertListener {
 
 			// Set Subject: header field
 			message.setSubject("CADCHP:"+subject);
-
 			// Send the actual HTML message, as big as you like
 			message.setContent(
 					textBody,
-					"text/text");
+					"text/html");
 
 			// Send message
 			Transport.send(message);

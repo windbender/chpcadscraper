@@ -93,6 +93,11 @@ public class ChpCadScraper implements Runnable {
 		        }
 			} catch (NoSuchElementException e) {
 				System.out.println("------- no found"+e);
+			} catch(Exception e) {
+				System.out.println("bad exception, no donut:"+e);
+				System.out.println(e.getMessage());
+				System.out.println(e.getStackTrace());
+				
 			}
 		} while(eventFound);
         
