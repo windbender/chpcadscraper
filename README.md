@@ -13,6 +13,6 @@ to produce:  cadchpscraper-0.0.1-SNAPSHOT-jar-with-dependencies.jar
 
 which is run from the command line like:
 
-java -jar cadchpscraper-0.0.1-SNAPSHOT-jar-with-dependencies.jar -h <smtphost> -p <smtppass> -u <smtpuser> -t <toemail> -f <fromemail> -k FilterArea.kml
+java -jar cadchpscraper-0.0.1-SNAPSHOT-jar-with-dependencies.jar -h [smtphost] -p [smtppass] -u [smtpuser] -t [toemail] -f [fromemail] -k FilterArea.kml
 
 
