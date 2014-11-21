@@ -11,9 +11,14 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.eclipse.jetty.util.log.Log;
 import org.joda.time.DateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RunIt {
+
+	static Logger logger = LoggerFactory.getLogger(RunIt.class);
 
 	/**
 	 * @param args
@@ -32,7 +37,7 @@ public class RunIt {
 			CommandLineParser parser = new BasicParser();
 			cmd = parser.parse( options, args);
 		} catch (ParseException e1) {
-			e1.printStackTrace();
+			logger.error("can't read CLI params ",e1);
 			return;
 		}
 		String fs = cmd.getOptionValue("k");
@@ -58,9 +63,10 @@ public class RunIt {
 		String username = cmd.getOptionValue("u");
 		String password = cmd.getOptionValue("p");
 
-		AlertListener email = new EmailAlertListener(from,to, smtpHost, username, password);
-		alerters.add(email);
-		
+		if(smtpHost != null) {
+			AlertListener email = new EmailAlertListener(from,to, smtpHost, username, password);
+			alerters.add(email);
+		}
 		LocationEventFilter lef = new LocationEventFilter();
 		lef.loadFromKML(f);
 		
@@ -70,7 +76,7 @@ public class RunIt {
 		Thread t = new Thread(ccs);
 		t.setName("cad scraper");
 		t.start();
-		
+		logger.info("scraper is started!");
 		List<CHPEvent> state = new ArrayList<CHPEvent>();
 		while(true) {
 			try {

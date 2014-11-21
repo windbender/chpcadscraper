@@ -1,11 +1,12 @@
 package com.github.windbender.chpcadscraper;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import org.joda.time.DateMidnight;
@@ -17,8 +18,13 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ChpCadScraper implements Runnable {
+	
+	Logger logger = LoggerFactory.getLogger(ChpCadScraper.class);
+
 	private String regionCode;
 	private boolean keepRunning = true;
 	private int period;
@@ -27,7 +33,7 @@ public class ChpCadScraper implements Runnable {
 		this.regionCode = regionCode;
 		this.period = period;
 	}
-	private static Map<EventKey,CHPEvent> store = new TreeMap<EventKey,CHPEvent>();
+	private static SortedMap<EventKey,CHPEvent> store = Collections.synchronizedSortedMap(new TreeMap<EventKey,CHPEvent>());
 
 	/**
 	 * @param args
@@ -92,11 +98,9 @@ public class ChpCadScraper implements Runnable {
 		        	}
 		        }
 			} catch (NoSuchElementException e) {
-				System.out.println("------- no found"+e);
+				logger.error("------- not found",e);
 			} catch(Exception e) {
-				System.out.println("bad exception, no donut:"+e);
-				System.out.println(e.getMessage());
-				System.out.println(e.getStackTrace());
+				logger.error("bad exception, no donut:",e);
 				
 			}
 		} while(eventFound);
@@ -132,10 +136,10 @@ public class ChpCadScraper implements Runnable {
 	}
 
 	public synchronized  void print() {
-        System.out.println("We found a total of "+store.size()+"  events");
+		logger.info("We found a total of "+store.size()+"  events");
         for(Entry<EventKey, CHPEvent> e: store.entrySet()) {
         	CHPEvent ce = e.getValue();
-        	System.out.println("Event: "+ce);
+        	logger.info("Event: "+ce);
         }
 		
 	}
@@ -143,11 +147,12 @@ public class ChpCadScraper implements Runnable {
 	public void run() {
 		while(keepRunning ) {
 			try {
+				logger.info("now scraping...");
 				scrape();
 			} catch (Exception e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
+				logger.error("can't scrape because ",e1);
 			}
+			logger.info("there are "+store.size()+" events currently ");
 			//print();
 			try {
 				Thread.sleep(period);

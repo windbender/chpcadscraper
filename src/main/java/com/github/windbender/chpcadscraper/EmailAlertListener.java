@@ -12,13 +12,19 @@ import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class EmailAlertListener implements AlertListener {
+	Logger logger = LoggerFactory.getLogger(EmailAlertListener.class);
+
 	String from;
 	String to;
 	String mailHost;
 	final String username;
 	final String password;
 	public EmailAlertListener(String from, String to, String mailHost, String username,String password) {
+		if(mailHost == null) throw new IllegalArgumentException("mailhost can't be null");
 		this.from = from;
 		this.to = to;
 		this.mailHost = mailHost;
@@ -36,7 +42,10 @@ public class EmailAlertListener implements AlertListener {
 				msg = msg +"&nbsp;&nbsp;"+l.time+" "+l.detail+"<p>";
 			}
 		}
-		sendMessage(this.to,msg,subject,from);
+		String[] parts = this.to.split(",");
+		for(String part: parts) {
+			sendMessage(part,msg,subject,from);
+		}
 	}
 
 	public void alertGone(List<CHPEvent> events) {
@@ -89,11 +98,9 @@ public class EmailAlertListener implements AlertListener {
 			// Send message
 			Transport.send(message);
 		} catch (AddressException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(" can't send email to "+toEmail+ " because",e);
 		} catch (MessagingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(" can't send email to "+toEmail+ " because",e);
 		}
 		
 
