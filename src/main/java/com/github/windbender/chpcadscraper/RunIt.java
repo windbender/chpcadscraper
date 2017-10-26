@@ -11,10 +11,10 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.eclipse.jetty.util.log.Log;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 public class RunIt {
 
@@ -67,10 +67,10 @@ public class RunIt {
 			AlertListener email = new EmailAlertListener(from,to, smtpHost, username, password);
 			alerters.add(email);
 		}
-		LocationEventFilter lef = new LocationEventFilter();
+		LocationFilter lef = new LocationFilter();
 		lef.loadFromKML(f);
 		
-		int period = 1000*60*5;
+		int period = 1000*60;
 		ChpCadScraper ccs = new ChpCadScraper(r,period);
 		ccs.setDetailFilter(lef);
 		Thread t = new Thread(ccs);
@@ -78,6 +78,7 @@ public class RunIt {
 		t.start();
 		logger.info("scraper is started!");
 		List<CHPEvent> state = new ArrayList<CHPEvent>();
+		
 		while(true) {
 			try {
 				Thread.sleep(1000 * 60);
@@ -87,7 +88,7 @@ public class RunIt {
 			doDiff(l,state, alerters);
 			state = l;
 		}
-		
+
 	}
 
 	private static void doDiff(List<CHPEvent> newlist, List<CHPEvent> currentList, AlertListener alerter) {

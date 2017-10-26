@@ -10,9 +10,9 @@ import de.micromata.opengis.kml.v_2_2_0.Kml;
 import de.micromata.opengis.kml.v_2_2_0.LineString;
 import de.micromata.opengis.kml.v_2_2_0.Placemark;
 
-public class LocationEventFilter implements EventFilter {
+public class LocationFilter implements EventFilter {
 	Region r = new Region();
-	public LocationEventFilter() {
+	public LocationFilter() {
 		
 	}
 	public void loadFromKML(File file) {
@@ -38,5 +38,6 @@ public class LocationEventFilter implements EventFilter {
 		Coordinate c = new Coordinate(ce.lat,ce.lon);
 		return RegionUtil.coordinateInRegion(r, c);
 	}
+
 
 }

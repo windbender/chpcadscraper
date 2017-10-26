@@ -35,7 +35,9 @@ public class EmailAlertListener implements AlertListener {
 	public void alertAdded(List<CHPEvent> events) {
 		CHPEvent first = events.get(0);
 		String subject =""+first.type+" at "+first.location;
-		String msg = "More details:<p>";
+		String url = "http://cad.chp.ca.gov";
+		String msg = "<a href=\""+url+"\" >Location: "+first.location+ " :  "+first.locationDesc+"</a>";
+		msg = msg + "<p>More details:<p>";
 		for(CHPEvent e: events) {
 			msg = msg + e.type+" at "+e.location +"<p>";
 			for(CHPLine l: e.lines){ 

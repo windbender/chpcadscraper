@@ -1,28 +1,25 @@
 package com.github.windbender.chpcadscraper;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 
-import org.joda.time.DateMidnight;
-import org.openqa.selenium.By;
-import org.openqa.selenium.NoSuchElementException;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.firefox.FirefoxDriver;
-import org.openqa.selenium.support.ui.ExpectedCondition;
-import org.openqa.selenium.support.ui.Select;
-import org.openqa.selenium.support.ui.WebDriverWait;
+import com.github.windbender.chpcadscraper.chpdata.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
 
-public class ChpCadScraper implements Runnable {
-	
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
+public class ChpCadScraper  extends DefaultHandler implements Runnable {
+
+
+	public static void main(String[] args) {
+		ChpCadScraper c  = new ChpCadScraper("xxx",1234);
+		c.scrape();
+	}
+
 	Logger logger = LoggerFactory.getLogger(ChpCadScraper.class);
 
 	private String regionCode;
@@ -33,126 +30,152 @@ public class ChpCadScraper implements Runnable {
 		this.regionCode = regionCode;
 		this.period = period;
 	}
-	private static SortedMap<EventKey,CHPEvent> store = Collections.synchronizedSortedMap(new TreeMap<EventKey,CHPEvent>());
+	private Set<CHPEvent> store = new HashSet<CHPEvent>();
 
-	/**
-	 * @param args
-	 */
+	private Set<String> eventTypesKnown = new HashSet<String>();
+
 	public synchronized void scrape() {
-		// Create a new instance of the Firefox driver
-        // Notice that the remainder of the code relies on the interface, 
-        // not the implementation.
-        WebDriver driver = new FirefoxDriver();
-        Set<EventKey> keep = new HashSet<EventKey>();
-//        WebDriver driver = new HtmlUnitDriver();
-        boolean eventFound = true;
-        do {
-        	eventFound = false;
-	        driver.get("http://cad.chp.ca.gov");
-	        try {
-				Select select = new Select(driver.findElement(By.id("ddlComCenter")));
-		        select.selectByValue(regionCode);
-		        
-		        WebElement element = driver.findElement(By.id("btnCCGo"));
-		        element.submit();
-		
-		        WebElement baseTable = driver.findElement(By.id("gvIncidents"));
-		        
-		        List<WebElement> tableRows = baseTable.findElements(By.xpath(".//tr[position()>1]"));
-		        for(WebElement we: tableRows) {
-		        	WebElement chpid = we.findElement(By.xpath(".//td[2]"));
-		        	String chipidStr = chpid.getText();
-		        	EventKey ev = new EventKey(chipidStr,new DateMidnight());
-		        	if(store .get(ev) == null) {
-		        		CHPEvent event = new CHPEvent(ev);
-			        		WebElement td = we.findElement(By.className("GVSelectColumn"));
-							if(td != null) {
-								WebElement link = td.findElement(By.xpath(".//a"));
-								link.click();
-								(new WebDriverWait(driver, 10)).until(new ExpectedCondition<Boolean>() {
-						            public Boolean apply(WebDriver d) {
-						            	WebElement detail = d.findElement(By.id("Details"));
-						            	if(detail != null) {
-						            		return true;
-						            	}
-						                return false;
-						            }
-						        });
-								WebElement detail = driver.findElement(By.id("Details"));
-								WebElement ll = detail.findElement(By.id("lblLatLon"));
-								WebElement loc = detail.findElement(By.id("lblLocation"));
-								WebElement type = detail.findElement(By.id("lblType"));
-								event.setLl(ll);
-								event.setLoc(loc);
-								event.setType(type);
-								if(detailFilter.test(event)) {
-									getDetailLines(event,detail);
-								}
-							}
-							store.put(ev,event);
-			        		keep.add(ev);
-				        	eventFound = true;
-			        	break;
-		        	} else {
-		        		keep.add(ev);
-		        	}
-		        }
-			} catch (NoSuchElementException e) {
-				logger.error("------- not found",e);
-			} catch(Exception e) {
-				logger.error("bad exception, no donut:",e);
-				
-			}
-		} while(eventFound);
-        
-        //Close the browser
-        driver.quit();
-        
-        // remove things which are not "keep"
-        Set<EventKey> current = new HashSet<EventKey>(store.keySet());
-        current.removeAll(keep);
-        for(EventKey key: current) {
-        	store.remove(key);
-        }
+		try {
+//			URL cadDataUrl = new URL("https://media.chp.ca.gov/sa_xml/sa.xml");
+			String cadDataUrl = new String("https://media.chp.ca.gov/sa_xml/sa.xml");
+//			File f = new File("/Users/chris/workspace/chpcadscraper/sa.xml");
+
+			//Create a "parser factory" for creating SAX parsers
+			SAXParserFactory spfac = SAXParserFactory.newInstance();
+
+			//Now use the parser factory to create a SAXParser object
+			SAXParser sp = spfac.newSAXParser();
+
+			current = null;
+			//Finally, tell the parser to parse the input and notify the handler
+			sp.parse(cadDataUrl, this);
+
+			State state = (State) current;
+
+			store = processToStore(state);
+
+		} catch(Exception e) {
+			logger.error("can't parse cad stuff because ",e);
+		}
    	}
 
-	private void getDetailLines(CHPEvent event, WebElement detail) {
-		WebElement detailsTable = detail.findElement(By.id("tblDetails"));
-		if(detailsTable != null) {
-			event.clearLines();
-			List<WebElement> tableRows = detailsTable.findElements(By.xpath(".//tr[position()>1]"));
-	        for(WebElement tr: tableRows) {
-	        	try {
-					WebElement timetd = tr.findElement(By.xpath(".//td[1]"));
-					WebElement detailtd = tr.findElement(By.xpath(".//td[3]"));
-					if(detailtd != null) {
-						event.addLine(new CHPLine(timetd.getText(),detailtd.getText()));
-					}
-				} catch (NoSuchElementException e) {
-					// ignore
+	private Set<CHPEvent> processToStore(State state) {
+		Set<CHPEvent> set = new HashSet<CHPEvent>();
+		for(Center c: state.getCenters()) {
+			for(Dispatch d : c.getDispatches()) {
+				for(Log l : d.getLogs()) {
+					CHPEvent ce = convertLog(l);
+					set.add(ce);
 				}
-	        }
+			}
+		}
+		return set;
+	}
+
+	private CHPEvent convertLog(Log l) {
+		EventKey ek = new EventKey(l.getID());
+		CHPEvent e = new CHPEvent(ek);
+		e.setLocation(l.getArea());
+		e.setType(l.getLogType());
+		e.setLocation(l.getLocation());
+		e.setLocationDesc(l.getLocationDesc());
+		String[] ll = l.getLATLON().split("\\:");
+		String latString = ll[0];
+		String lonString = ll[1];
+		Double lat = Double.parseDouble("0."+latString.substring(1));
+		Double lon = Double.parseDouble("-0."+lonString.substring(0,lonString.length()-1));
+		lat = lat * 100;
+		lon = lon * 1000;
+		e.setLat(lat);
+		e.setLon(lon);
+		for(Detail ld : l.getLogDetails()) {
+			CHPLine cl = new CHPLine(ld.getTime(),ld.getTxt());
+			e.getLines().add(cl);
+		}
+		return e;
+	}
+
+	Able current;
+	Able parent;
+	Stack<Able> stack = new Stack<Able>();
+
+	@Override
+	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+		super.startElement(uri, localName, qName, attributes);
+		if(current != null) {
+			stack.push(current);
+			parent = current;
+		}
+		boolean doAttributes = true;
+		if(qName.equals("State")) {
+			current = new State();
+		} else if(qName.equals("Center")) {
+			State state = (State) parent;
+			Center center = new Center();
+			state.add(center);
+			current= center;
+		} else if(qName.equals("Dispatch")) {
+			Center center = (Center) parent;
+			Dispatch dispatch = new Dispatch();
+			center.add(dispatch);
+			current= dispatch;
+		} else if(qName.equals("Log")) {
+			Dispatch dispatch = (Dispatch) parent;
+			Log log = new Log();
+			dispatch.add(log);
+			current= log;
+		} else {
+			// these are all "inside" log no ?
+			// so pop the stack back where it was
+
+			Log log = (Log) current;
+			log.startElement(qName, attributes);
+			doAttributes = false;
+		}
+
+		if(doAttributes ) {
+			current.doAttributes(attributes);
 		}
 	}
 
-	public synchronized  void print() {
-		logger.info("We found a total of "+store.size()+"  events");
-        for(Entry<EventKey, CHPEvent> e: store.entrySet()) {
-        	CHPEvent ce = e.getValue();
-        	logger.info("Event: "+ce);
-        }
-		
+	@Override
+	public void endElement(String uri, String localName, String qName) throws SAXException {
+		super.endElement(uri, localName, qName);
+		if(current instanceof Log) {
+			Log log = (Log) current;
+			log.endElement(qName);
+			eventTypesKnown.add(log.getLogType());
+		}
+		if(stack.size() > 0) {
+			current = stack.pop();
+			if(stack.size() >0 ) {
+				parent = stack.peek();
+			} else {
+				parent = null;
+			}
+		} else {
+			// don't set current to null
+		}
+
 	}
+
+	@Override
+	public void characters(char[] ch, int start, int length) throws SAXException {
+		super.characters(ch, start, length);
+		current.addChars(new String(ch,start,length));
+	}
+
+
 
 	public void run() {
 		while(keepRunning ) {
 			try {
-				logger.info("now scraping...");
+//				logger.info("now scraping...");
 				scrape();
 			} catch (Exception e1) {
 				logger.error("can't scrape because ",e1);
 			}
-			logger.info("there are "+store.size()+" events currently ");
+//			logger.info("there are "+store.size()+" events currently ");
 			//print();
 			try {
 				Thread.sleep(period);
@@ -163,11 +186,11 @@ public class ChpCadScraper implements Runnable {
 
 	public synchronized List<CHPEvent> returnFiltered(EventFilter eventFilter) {
 		List<CHPEvent> out = new ArrayList<CHPEvent>();
-		for(Entry<EventKey, CHPEvent> e: store.entrySet()) {
+		for(CHPEvent e: store) {
 			if(eventFilter == null) {
-				out.add(e.getValue());
-			} else if(eventFilter.test(e.getValue())) {
-				out.add(e.getValue());
+				out.add(e);
+			} else if(eventFilter.test(e)) {
+				out.add(e);
 			}
         }
 		return out;
@@ -177,6 +200,5 @@ public class ChpCadScraper implements Runnable {
 		detailFilter = lef;
 		
 	}
-	
 
 }
