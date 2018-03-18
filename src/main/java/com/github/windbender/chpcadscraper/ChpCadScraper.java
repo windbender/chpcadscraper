@@ -3,6 +3,7 @@ package com.github.windbender.chpcadscraper;
 import java.util.*;
 
 import com.github.windbender.chpcadscraper.chpdata.*;
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
@@ -15,20 +16,26 @@ import javax.xml.parsers.SAXParserFactory;
 public class ChpCadScraper  extends DefaultHandler implements Runnable {
 
 
+	private final AlertListener alerters;
+	private DateTime last;
+
 	public static void main(String[] args) {
-		ChpCadScraper c  = new ChpCadScraper("xxx",1234);
+		ChpCadScraper c  = new ChpCadScraper("xxx",1234, null);
 		c.scrape();
+
 	}
 
 	Logger logger = LoggerFactory.getLogger(ChpCadScraper.class);
 
+	int scrapeCount = 0;
 	private String regionCode;
 	private boolean keepRunning = true;
 	private int period;
 	private EventFilter detailFilter;
-	public ChpCadScraper(String regionCode, int period) {
+	public ChpCadScraper(String regionCode, int period, AlertListener alerters) {
 		this.regionCode = regionCode;
 		this.period = period;
+		this.alerters = alerters;
 	}
 	private Set<CHPEvent> store = new HashSet<CHPEvent>();
 
@@ -53,8 +60,9 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 			State state = (State) current;
 
 			store = processToStore(state);
-
+			scrapeCount++;
 		} catch(Exception e) {
+			emailAdmin("parse cad stuff because "+e);
 			logger.error("can't parse cad stuff because ",e);
 		}
    	}
@@ -168,20 +176,33 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 
 
 	public void run() {
+		// get an email on start
+		last = new DateTime().minusDays(1);
+		emailAdmin("yes, you restarted me!");
+		logger.info("scraper thread running");
 		while(keepRunning ) {
 			try {
-//				logger.info("now scraping...");
 				scrape();
+				try {
+					Thread.sleep(period);
+				} catch (InterruptedException e) {
+				}
+				DateTime now = new DateTime();
+				if(now.minusDays(1).isBefore(last)) {
+					emailAdmin("we have scraped "+scrapeCount);
+					scrapeCount=0;
+					last = now;
+				}
 			} catch (Exception e1) {
+				emailAdmin("can't scrape because "+e1);
 				logger.error("can't scrape because ",e1);
 			}
-//			logger.info("there are "+store.size()+" events currently ");
-			//print();
-			try {
-				Thread.sleep(period);
-			} catch (InterruptedException e) {
-			}
 		}
+		logger.info("scraper thread STOPPED");
+	}
+
+	private void emailAdmin(String s) {
+		alerters.emailAdmin(s);
 	}
 
 	public synchronized List<CHPEvent> returnFiltered(EventFilter eventFilter) {
@@ -201,4 +222,8 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 		
 	}
 
+	public void stop() {
+		keepRunning = false;
+
+	}
 }

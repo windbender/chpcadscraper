@@ -19,6 +19,9 @@ import org.slf4j.LoggerFactory;
 public class RunIt {
 
 	static Logger logger = LoggerFactory.getLogger(RunIt.class);
+	static boolean keeprunning = true;
+	static Thread t;
+	private static Thread curt;	
 
 	/**
 	 * @param args
@@ -71,15 +74,32 @@ public class RunIt {
 		lef.loadFromKML(f);
 		
 		int period = 1000*60;
-		ChpCadScraper ccs = new ChpCadScraper(r,period);
+		final ChpCadScraper ccs = new ChpCadScraper(r,period,alerters);
 		ccs.setDetailFilter(lef);
-		Thread t = new Thread(ccs);
+		t = new Thread(ccs);
 		t.setName("cad scraper");
 		t.start();
+		logger.info("emails will be "+to);
+		logger.info("file will be "+fs);
 		logger.info("scraper is started!");
 		List<CHPEvent> state = new ArrayList<CHPEvent>();
-		
-		while(true) {
+		curt = Thread.currentThread();
+
+		Runtime.getRuntime().addShutdownHook(new Thread()
+		{
+			@Override
+			public void run()
+			{
+				logger.info("I got a signal to stop!");
+				ccs.stop();
+				t.interrupt();
+				this.interrupt();
+				curt.interrupt();
+				keeprunning = false;
+			}
+		});
+
+		while(keeprunning) {
 			try {
 				Thread.sleep(1000 * 60);
 			} catch (InterruptedException e) {
@@ -88,7 +108,6 @@ public class RunIt {
 			doDiff(l,state, alerters);
 			state = l;
 		}
-
 	}
 
 	private static void doDiff(List<CHPEvent> newlist, List<CHPEvent> currentList, AlertListener alerter) {

@@ -27,4 +27,8 @@ public class PrintAlertListener implements AlertListener {
 		}
 	}
 
+	public void emailAdmin(String msg) {
+		logger.info("admin :"+msg);
+	}
+
 }

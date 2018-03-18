@@ -28,4 +28,10 @@ public class CompoundAlertListener implements AlertListener {
 		}
 	}
 
+	public void emailAdmin(String msg) {
+		for(AlertListener al: alerters) {
+			al.emailAdmin(msg);
+		}
+	}
+
 }

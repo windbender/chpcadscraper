@@ -62,6 +62,14 @@ public class EmailAlertListener implements AlertListener {
 
 	}
 
+	public void emailAdmin(String msg) {
+		String subject ="cad status";
+
+		String[] parts = this.to.split(",");
+		String adminTo = parts[0];
+		sendMessage(adminTo,msg,subject,from);
+	}
+
 	protected void sendMessage(String toEmail, String textBody, String subject, String fromAddress) {
 		try {
 			// Get system properties
