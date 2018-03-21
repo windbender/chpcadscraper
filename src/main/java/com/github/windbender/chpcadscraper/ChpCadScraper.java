@@ -57,9 +57,14 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 			//Finally, tell the parser to parse the input and notify the handler
 			sp.parse(cadDataUrl, this);
 
-			State state = (State) current;
+			if(current instanceof State) {
+				State state = (State) current;
 
-			store = processToStore(state);
+				store = processToStore(state);
+			} else {
+				logger.warn("it's likely that the XML document was incomplete for some reason, such that current was not top level");
+				logger.warn("in fact stack had size "+stack.size());
+			}
 			scrapeCount++;
 		} catch(Exception e) {
 			emailAdmin("parse cad stuff because "+e);
