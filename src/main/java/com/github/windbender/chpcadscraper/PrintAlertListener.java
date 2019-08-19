@@ -2,6 +2,7 @@ package com.github.windbender.chpcadscraper;
 
 import java.util.List;
 
+import org.geojson.Feature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +30,16 @@ public class PrintAlertListener implements AlertListener {
 
 	public void emailAdmin(String msg) {
 		logger.info("admin :"+msg);
+	}
+
+	@Override
+	public void alertNws(Feature feature) {
+		logger.info("new alert-> :"+feature);
+	}
+
+	@Override
+	public void alertNwsRemoved(Feature feature) {
+		logger.info("alert cleared :"+feature);
 	}
 
 }

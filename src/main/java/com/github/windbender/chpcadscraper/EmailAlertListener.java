@@ -1,6 +1,7 @@
 package com.github.windbender.chpcadscraper;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import javax.mail.Message;
@@ -12,10 +13,11 @@ import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
+import org.geojson.Feature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class EmailAlertListener implements AlertListener {
+public class EmailAlertListener implements AlertListener{
 	Logger logger = LoggerFactory.getLogger(EmailAlertListener.class);
 
 	String from;
@@ -37,8 +39,8 @@ public class EmailAlertListener implements AlertListener {
 		String subject =""+first.type+" at "+first.location;
 		String url = "http://cad.chp.ca.gov";
 
-		String msg = "<a href=\""+url+"\" >Location: "+first.location+ " :  "+first.locationDesc+"</a>";
-		msg = msg + "<p><a href=\""+"https://www.google.com/maps/place/"+first.getLat()+" "+first.getLon()+"\">google map</a>";
+		String msg = "link to detail: <a href=\""+url+"\" >Location: "+first.location+ " :  "+first.locationDesc+"</a>";
+		msg = msg + "<p>map: <a href=\""+"https://www.google.com/maps/place/"+first.getLat()+" "+first.getLon()+"\">google map</a>";
 		msg = msg + "<p>More details:<p>";
 		for(CHPEvent e: events) {
 			msg = msg + e.type+" at "+e.location +"<p>";
@@ -70,7 +72,42 @@ public class EmailAlertListener implements AlertListener {
 		sendMessage(adminTo,msg,subject,from);
 	}
 
-	protected void sendMessage(String toEmail, String textBody, String subject, String fromAddress) {
+	@Override
+	public void alertNws(Feature feature) {
+		Map<String, Object> props = feature.getProperties();
+
+		String sent = (String)props.get("sent");
+		String start = (String)props.get("onset");
+		String end = (String)props.get("ends");
+		String desc = (String)props.get("description");
+		desc = desc.replaceAll("\n","<p>");
+		String subject =(String)props.get("event") +" at "+start;
+
+		String msg = "Issued: "+sent+"<p>";
+		msg = msg + "Starts: "+start+"<p>";
+		msg = msg + "Ends: "+end+"<p>";
+
+		// Perhaps add a forecast link:
+        //TODO  https://forecast.weather.gov/MapClick.php?w0=t&w1=td&w2=hi&w3=sfcwind&w3u=1&w4=sky&w6=rh&w11u=1&w12u=1&Submit=Submit&FcstType=graphical&textField1=38.5175&textField2=-122.6175&site=all&unit=0&dd=&bw=
+		msg = msg + "Desc: "+desc+"<p>";
+
+//		String[] parts = this.to.split(",");
+//		for(String part: parts) {
+//			sendMessage(part,msg,subject,from);
+//		}
+		String[] parts = this.to.split(",");
+		String adminTo = parts[0];
+		sendMessage(adminTo,msg,subject,from);
+
+	}
+
+	@Override
+	public void alertNwsRemoved(Feature feature) {
+
+	}
+
+
+	protected boolean sendMessage(String toEmail, String textBody, String subject, String fromAddress) {
 		try {
 			// Get system properties
 
@@ -101,7 +138,7 @@ public class EmailAlertListener implements AlertListener {
 			message.addRecipient(Message.RecipientType.TO, new InternetAddress(toEmail));
 
 			// Set Subject: header field
-			message.setSubject("CADCHP:"+subject);
+			message.setSubject("CHP:"+subject);
 			// Send the actual HTML message, as big as you like
 			message.setContent(
 					textBody,
@@ -109,12 +146,13 @@ public class EmailAlertListener implements AlertListener {
 
 			// Send message
 			Transport.send(message);
+			return true;
 		} catch (AddressException e) {
 			logger.error(" can't send email to "+toEmail+ " because",e);
 		} catch (MessagingException e) {
 			logger.error(" can't send email to "+toEmail+ " because",e);
 		}
-		
+		return false;
 
 	}
 

@@ -17,7 +17,7 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 
 
 	private final AlertListener alerters;
-	private DateTime last;
+	private volatile DateTime last;
 
 	public static void main(String[] args) {
 		ChpCadScraper c  = new ChpCadScraper("xxx",1234, null);
@@ -28,6 +28,9 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 	Logger logger = LoggerFactory.getLogger(ChpCadScraper.class);
 
 	int scrapeCount = 0;
+	public int getScrapeCount() {
+		return scrapeCount;
+	}
 	private String regionCode;
 	private boolean keepRunning = true;
 	private int period;
@@ -41,7 +44,7 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 
 	private Set<String> eventTypesKnown = new HashSet<String>();
 
-	public synchronized void scrape() {
+	public synchronized boolean scrape() {
 		try {
 //			URL cadDataUrl = new URL("https://media.chp.ca.gov/sa_xml/sa.xml");
 			String cadDataUrl = new String("https://media.chp.ca.gov/sa_xml/sa.xml");
@@ -66,10 +69,14 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 				logger.warn("in fact stack had size "+stack.size());
 			}
 			scrapeCount++;
-		} catch(Exception e) {
-			emailAdmin("parse cad stuff because "+e);
+			return true;
+		} catch(org.xml.sax.SAXParseException e) {
+			// ignore this because the CHP site hands out malformed files regularly.
+		} catch (Exception e) {
+			//emailAdmin("parse cad stuff because "+e);
 			logger.error("can't parse cad stuff because ",e);
 		}
+		return false;
    	}
 
 	private Set<CHPEvent> processToStore(State state) {
@@ -92,9 +99,13 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 		e.setType(l.getLogType());
 		e.setLocation(l.getLocation());
 		e.setLocationDesc(l.getLocationDesc());
-		String[] ll = l.getLATLON().split("\\:");
-		String latString = ll[0];
-		String lonString = ll[1];
+		String latString = "";
+		String lonString = "";
+		if(l.getLATLON() != null) {
+			String[] ll = l.getLATLON().split("\\:");
+			latString = ll[0];
+			lonString = ll[1];
+		}
 		Double lat = Double.parseDouble("0."+latString.substring(1));
 		Double lon = Double.parseDouble("-0."+lonString.substring(0,lonString.length()-1));
 		lat = lat * 100;
@@ -178,23 +189,32 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 		current.addChars(new String(ch,start,length));
 	}
 
-
+	int failCount = 0;
 
 	public void run() {
 		// get an email on start
-		last = new DateTime().minusDays(1);
+		last = new DateTime();
 		emailAdmin("yes, you restarted me!");
 		logger.info("scraper thread running");
 		while(keepRunning ) {
 			try {
-				scrape();
-				try {
-					Thread.sleep(period);
-				} catch (InterruptedException e) {
+				if(scrape()) {
+					// success wait the period
+					try {
+						Thread.sleep(period);
+					} catch (InterruptedException e) {
+					}
+				} else {
+					// scrape fail, wait 1 second
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+					}
+					failCount++;
 				}
 				DateTime now = new DateTime();
-				if(now.minusDays(1).isBefore(last)) {
-					emailAdmin("we have scraped "+scrapeCount);
+				if(now.minusDays(1).isAfter(last)) {
+					emailAdmin("we have scraped "+scrapeCount+" we have failed "+failCount);
 					scrapeCount=0;
 					last = now;
 				}
@@ -206,6 +226,9 @@ public class ChpCadScraper  extends DefaultHandler implements Runnable {
 		logger.info("scraper thread STOPPED");
 	}
 
+	public DateTime getLastRunTime() {
+		return this.last;
+	}
 	private void emailAdmin(String s) {
 		alerters.emailAdmin(s);
 	}
